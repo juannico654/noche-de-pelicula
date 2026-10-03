@@ -3,28 +3,49 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+  build-apk:
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+
+      # Java 17 es el estándar actual para Android/Gradle recientes
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          python-version: '3.12'
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-      - name: Install Buildozer
-        run: pip install --upgrade pip buildozer cython==0.29.36
-      - name: Build APK
-        run: buildozer -v android debug
-      - name: Upload APK
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      # Instala Flutter (ajusta la versión si quieres fijarla exacta)
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Si usas codegen, puedes descomentar esto:
+      # - name: Generate code
+      #   run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: noche-de-pelicula-apk
-          path: bin/*.apk
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
